@@ -45,6 +45,7 @@ def create_pdf(patient_data):
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"  Verdict: {patient_data['Diabetes Verdict']}", ln=True)
     pdf.cell(200, 10, txt=f"  Risk: {patient_data['Risk of Diabetes']}", ln=True)
+    pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Diabetes Treatment Suggestion']}", ln=True)
     pdf.ln(5)  # Line break
     
     pdf.set_font("Arial", 'B', 12)
@@ -52,6 +53,7 @@ def create_pdf(patient_data):
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"  Verdict: {patient_data['Heart Disease Verdict']}", ln=True)
     pdf.cell(200, 10, txt=f"  Risk: {patient_data['Risk of Heart Disease']}", ln=True)
+    pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Heart Disease Treatment Suggestion']}", ln=True)
     pdf.ln(5)  # Line break
     
     pdf.set_font("Arial", 'B', 12)
@@ -59,6 +61,7 @@ def create_pdf(patient_data):
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"  Verdict: {patient_data['Parkinsons Verdict']}", ln=True)
     pdf.cell(200, 10, txt=f"  Risk: {patient_data['Risk of Parkinsons']}", ln=True)
+    pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Parkinsons Treatment Suggestion']}", ln=True)
     pdf.ln(10)
     
     pdf.set_font("Arial", 'I', 10)
@@ -105,220 +108,22 @@ def login():
             st.warning("Invalid username or password.")
 
 if st.session_state['logged_in']:
-    suggestion_generator = pipeline('text-generation', model='gpt2', device=0, max_length=1000)
+    suggestion_generator = pipeline('text-generation', model='gpt2', device=0, max_length=50)
 
-    def clean_generated_text(text):
-        # Step 1: Remove extra whitespaces and standardize punctuation
-        text = text.strip()
-        text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces with a single space
-        text = re.sub(r'\s+([.,!?;:])', r'\1', text)  # Remove space before punctuation
-
-        # Step 2: Split text into sentences
-        sentences = re.split(r'(?<=[.!?]) +', text)
-
-        # Step 3: Filter out repeated sentences
-        sentence_count = Counter(sentences)
-        unique_sentences = [s for s in sentence_count if sentence_count[s] == 1]
+    def get_ai_health_suggestions(prediction, risk_level, disease):
         
-        # Step 4: Join the unique sentences back into a single text block
-        cleaned_text = ' '.join(unique_sentences)
+        prompt = (f"The patient's prediction for {disease} is {'positive' if prediction==1 else 'negative'} and their risk level is {risk_level}. "
+              "Based on this, provide a recommendation on whether further testing is required.")
+    
+        generated_text = suggestion_generator(prompt, num_return_sequences=1)[0]['generated_text']
+        response_start = prompt.split('recommendation regarding further testing?')[0]
+        response = generated_text.replace(response_start, '').strip()
         
-        return cleaned_text
-
-
-    def get_diabetes_health_suggestions(prediction, input_data):
-        # Analyze potential risk factors
-        prompt_1 = (
-            f"Given the patient's health metrics:\n"
-            f"- Pregnancies: {input_data[0]}\n"
-            f"- Glucose Level: {input_data[1]} mg/dL\n"
-            f"- Blood Pressure: {input_data[2]} mm Hg\n"
-            f"- Skin Thickness: {input_data[3]} mm\n"
-            f"- Insulin Level: {input_data[4]} IU/mL\n"
-            f"- BMI: {input_data[5]}\n"
-            f"- Diabetes Pedigree Function: {input_data[6]}\n"
-            f"- Age: {input_data[7]} years\n\n"
-            f"The diabetes prediction suggests that the patient {'is diabetic' if prediction == 1 else 'is not diabetic'}.\n"
-            f"Please analyze the health metrics and identify potential risk factors:\n"
-            f"- Use bullet points for clarity."
-        )
-
-        suggestions_1 = suggestion_generator(prompt_1, max_length=300, num_return_sequences=1, temperature=0.7)
-        formatted_suggestions_1 = clean_generated_text(suggestions_1[0]['generated_text'].strip())
-
-        # Health recommendations
-        prompt_2 = (
-            f"Given the patient's health metrics:\n"
-            f"- Pregnancies: {input_data[0]}\n"
-            f"- Glucose Level: {input_data[1]} mg/dL\n"
-            f"- Blood Pressure: {input_data[2]} mm Hg\n"
-            f"- Skin Thickness: {input_data[3]} mm\n"
-            f"- Insulin Level: {input_data[4]} IU/mL\n"
-            f"- BMI: {input_data[5]}\n"
-            f"- Diabetes Pedigree Function: {input_data[6]}\n"
-            f"- Age: {input_data[7]} years\n\n"
-            f"The diabetes prediction suggests that the patient {'is diabetic' if prediction == 1 else 'is not diabetic'}.\n"
-            f"Please provide health recommendations in the following format:\n"
-            f"1. **Diagnostic Recommendations**: Suggest up to two tests.\n"
-            f"2. **Dietary Recommendations**: Recommend two dietary changes.\n"
-            f"3. **Exercise Plan**: Suggest one activity.\n"
-            f"4. **Medications**: Suggest up to two medications.\n"
-            f"5. **Lifestyle Modifications**: Recommend one change.\n"
-            f"6. **Follow-Up Plan**: Suggest follow-up activities.\n"
-            f"7. **Pregnancy Considerations**: Suggest one supplement if applicable.\n"
-            f"8. **Breastfeeding Considerations**: Suggest one dietary change.\n"
-            f"9. **Dietary Supplementation**: Recommend one supplement.\n"
-            f"Use bullet points for clarity."
-        )
-
-        suggestions_2 = suggestion_generator(prompt_2, max_length=500, num_return_sequences=1, temperature=0.7)
-        formatted_suggestions_2 = clean_generated_text(suggestions_2[0]['generated_text'].strip())
+        # Post-process to ensure it's concise and returns only the first two sentences
+        sentences = response.split('. ')
+        result = '. '.join(sentences[:2]).strip()
         
-        return formatted_suggestions_1 + "\n\n" + formatted_suggestions_2
-
-
-
-
-
-    def get_heart_disease_suggestions(prediction, input_data):
-
-        prompt_1 = (
-            f"Patient's health metrics:\n"
-            f"- Age: {input_data[0]} years\n"
-            f"- Anaemia: {'Yes' if input_data[1] == 1 else 'No'}\n"
-            f"- Creatinine Phosphokinase: {input_data[2]} IU/L\n"
-            f"- Diabetes: {'Yes' if input_data[3] == 1 else 'No'}\n"
-            f"- Ejection Fraction: {input_data[4]}%\n"
-            f"- High Blood Pressure: {'Yes' if input_data[5] == 1 else 'No'}\n"
-            f"- Platelets: {input_data[6]} x10^9/L\n"
-            f"- Serum Creatinine: {input_data[7]} mg/dL\n"
-            f"- Serum Sodium: {input_data[8]} mEq/L\n"
-            f"- Sex: {'Male' if input_data[9] == 1 else 'Female'}\n"
-            f"- Smoking: {'Yes' if input_data[10] == 1 else 'No'}\n"
-            f"- Time: {input_data[11]} months since diagnosis\n\n"
-            f"The heart disease prediction suggests the patient has {'heart disease' if prediction == 1 else 'no heart disease'}.\n\n"
-            f"Analyze the given health metrics, and identify potential {'contributing factors towards the diagnosis' if prediction == 1 else 'risk factors towards a future diagnosis'}.\n"
-            f"Please provide a concise answer.\n"
-        )
-
-        prompt_2 = (
-            f"Patient's health metrics:\n"
-            f"- Age: {input_data[0]} years\n"
-            f"- Anaemia: {'Yes' if input_data[1] == 1 else 'No'}\n"
-            f"- Creatinine Phosphokinase: {input_data[2]} IU/L\n"
-            f"- Diabetes: {'Yes' if input_data[3] == 1 else 'No'}\n"
-            f"- Ejection Fraction: {input_data[4]}%\n"
-            f"- High Blood Pressure: {'Yes' if input_data[5] == 1 else 'No'}\n"
-            f"- Platelets: {input_data[6]} x10^9/L\n"
-            f"- Serum Creatinine: {input_data[7]} mg/dL\n"
-            f"- Serum Sodium: {input_data[8]} mEq/L\n"
-            f"- Sex: {'Male' if input_data[9] == 1 else 'Female'}\n"
-            f"- Smoking: {'Yes' if input_data[10] == 1 else 'No'}\n"
-            f"- Time: {input_data[11]} months since diagnosis\n\n"
-            f"The heart disease prediction suggests the patient has {'heart disease' if prediction == 1 else 'no heart disease'}.\n\n"
-            f"Provide a comprehensive course of action, limited to specific and actionable recommendations for the clinician:\n\n"
-            f"1. **Diagnostic Recommendations**: Suggest one or two specific tests to confirm the diagnosis or assess risk factors.\n"
-            f"2. **Treatment Plan**:\n"
-            f"   - **Dietary Interventions**: Provide up to two dietary changes personalized to the patient's condition.\n"
-            f"   - **Exercise Prescriptions**: Recommend one exercise plan based on the patient's profile.\n"
-            f"   - **Medication**: Mention any medications, if necessary.\n"
-            f"3. **Lifestyle Modifications**: Offer one suggestion to improve lifestyle (e.g., stress management or sleep improvements).\n"
-            f"4. **Follow-Up Plan**: Recommend one or two follow-up activities for monitoring the patient's heart health.\n\n"
-            f"All recommendations should be personalized, evidence-based, and aligned with current medical guidelines."
-        )
-
-        # Generate suggestions with a max length to prevent unnecessary repetition
-        suggestions_1 = suggestion_generator(prompt_1, max_length=500, num_return_sequences=1, temperature=0.7)
-
-        # Clean and format the generated text
-        raw_text = suggestions_1[0]['generated_text'].strip()
-        formatted_suggestions = clean_generated_text(raw_text)
-
-        suggestions_2 = suggestion_generator(prompt_2, max_length=500, num_return_sequences=1, temperature=0.7)
-
-        raw_text1 = suggestions_2[0]['generated_text'].strip()
-        formatted_suggestions1 = clean_generated_text(raw_text1)
-
-        return formatted_suggestions+"\n"+formatted_suggestions1
-
-    def get_parkinsons_health_suggestions(prediction, input_data):
-
-        prompt_1 = (
-            f"Patient's health metrics for Parkinson's prediction:\n"
-            f"- MDVP:Fo(Hz): {input_data[0]}\n"
-            f"- MDVP:Fhi(Hz): {input_data[1]}\n"
-            f"- MDVP:Flo(Hz): {input_data[2]}\n"
-            f"- MDVP:Jitter(%): {input_data[3]}\n"
-            f"- MDVP:Jitter(Abs): {input_data[4]}\n"
-            f"- MDVP:RAP: {input_data[5]}\n"
-            f"- MDVP:PPQ: {input_data[6]}\n"
-            f"- Jitter:DDP: {input_data[7]}\n"
-            f"- MDVP:Shimmer: {input_data[8]}\n"
-            f"- MDVP:Shimmer(dB): {input_data[9]}\n"
-            f"- Shimmer:APQ3: {input_data[10]}\n"
-            f"- Shimmer:APQ5: {input_data[11]}\n"
-            f"- MDVP:APQ: {input_data[12]}\n"
-            f"- Shimmer:DDA: {input_data[13]}\n"
-            f"- NHR: {input_data[14]}\n"
-            f"- HNR: {input_data[15]}\n"
-            f"- RPDE: {input_data[16]}\n"
-            f"- DFA: {input_data[17]}\n"
-            f"- Spread1: {input_data[18]}\n"
-            f"- Spread2: {input_data[19]}\n"
-            f"- D2: {input_data[20]}\n"
-            f"- PPE: {input_data[21]}\n\n"
-            f"The Parkinson's prediction suggests the patient has {'Parkinsons' if prediction == 1 else 'no Parkinsons'}.\n\n"
-            f"Analyze the given health metrics, and identify potential {'contributing factors towards the diagnosis' if prediction == 1 else 'risk factors towards a future diagnosis'}.\n"
-            f"Please provide a concise answer.\n"
-        )
-
-        prompt_2 = (
-            f"Patient's health metrics for Parkinson's prediction:\n"
-            f"- MDVP:Fo(Hz): {input_data[0]}\n"
-            f"- MDVP:Fhi(Hz): {input_data[1]}\n"
-            f"- MDVP:Flo(Hz): {input_data[2]}\n"
-            f"- MDVP:Jitter(%): {input_data[3]}\n"
-            f"- MDVP:Jitter(Abs): {input_data[4]}\n"
-            f"- MDVP:RAP: {input_data[5]}\n"
-            f"- MDVP:PPQ: {input_data[6]}\n"
-            f"- Jitter:DDP: {input_data[7]}\n"
-            f"- MDVP:Shimmer: {input_data[8]}\n"
-            f"- MDVP:Shimmer(dB): {input_data[9]}\n"
-            f"- Shimmer:APQ3: {input_data[10]}\n"
-            f"- Shimmer:APQ5: {input_data[11]}\n"
-            f"- MDVP:APQ: {input_data[12]}\n"
-            f"- Shimmer:DDA: {input_data[13]}\n"
-            f"- NHR: {input_data[14]}\n"
-            f"- HNR: {input_data[15]}\n"
-            f"- RPDE: {input_data[16]}\n"
-            f"- DFA: {input_data[17]}\n"
-            f"- Spread1: {input_data[18]}\n"
-            f"- Spread2: {input_data[19]}\n"
-            f"- D2: {input_data[20]}\n"
-            f"- PPE: {input_data[21]}\n\n"
-            f"The Parkinson's prediction suggests the patient has {'Parkinsons' if prediction == 1 else 'no Parkinsons'}.\n\n"
-            f"Provide a concise course of action for the clinician, including:\n"
-            f"1. **Diagnostic Recommendations**: Suggest 1-2 key additional tests or assessments that might be necessary.\n"
-            f"2. **Treatment Plan**:\n"
-            f"   - **Dietary Interventions**: Recommend up to two specific dietary changes tailored to the patient's profile.\n"
-            f"   - **Exercise Prescriptions**: Suggest 1 personalized exercise plan, including the type and duration of exercises.\n"
-            f"   - **Medications**: If necessary, mention relevant medications.\n"
-            f"3. **Lifestyle Modifications**: Provide 1-2 recommendations for lifestyle improvements, such as stress reduction or sleep hygiene.\n"
-            f"4. **Follow-Up Plan**: Suggest 1-2 specific follow-up steps to monitor the patient's condition.\n"
-            f"5. **Consultation Note**: Remind the clinician to discuss the recommendations and customize them to the patient's needs.\n\n"
-            f"All suggestions should be evidence-based and aligned with current medical guidelines.\n"
-        )
-
-        # Generate suggestions with appropriate constraints on length and creativity
-        suggestions = suggestion_generator(prompt_1, max_length=500, num_return_sequences=1, temperature=0.7)
-        raw_text = suggestions[0]['generated_text'].strip()
-        formatted_suggestions = clean_generated_text(raw_text)
-
-        suggestions_1 = suggestion_generator(prompt_2, max_length=500, num_return_sequences=1, temperature=0.7)
-        raw_text1 = suggestions_1[0]['generated_text'].strip()
-        formatted_suggestions1 = clean_generated_text(raw_text1)
-
-        return formatted_suggestions+"\n"+formatted_suggestions1   
+        return result if result.endswith('.') else result + '.'
 
         
     # getting the working directory of the main.py
@@ -654,6 +459,8 @@ if st.session_state['logged_in']:
                 risk_category_d = 'Low Risk' if risk_score_d < 0.3 else 'Medium Risk' if 0.3 <= risk_score_d < 0.7 else 'High Risk'
                 st.success(diab_diagnosis)
                 st.write(f'Risk of developing diabetes: {risk_score_d:.2f} ({risk_category_d})')
+                ai_suggestions_d = get_ai_health_suggestions(diab_prediction[0], risk_category_d, 'Diabetes')
+                #print(ai_suggestions_d)
 
                 # Process heart disease prediction
                 heart_input = [age, heart_result[2], heart_result[3], heart_result[4], heart_result[5], heart_result[6], heart_result[7], heart_result[8], heart_result[9], sex, heart_result[10], heart_result[11]]
@@ -670,6 +477,7 @@ if st.session_state['logged_in']:
                 risk_category_h = 'Low Risk' if risk_score_h < 0.3 else 'Medium Risk' if 0.3 <= risk_score_h < 0.7 else 'High Risk'
                 st.success(heart_diagnosis)
                 st.write(f'Risk of developing heart disease: {risk_score_h:.2f} ({risk_category_h})')
+                ai_suggestions_h = get_ai_health_suggestions(heart_prediction[0], risk_category_h, 'Heart Disease')
 
                 # Process Parkinson's prediction
                 parkinsons_input = [float(x) for x in parkinson_result[2:24]]  # Assuming indices 2-23 are relevant
@@ -685,6 +493,7 @@ if st.session_state['logged_in']:
                 risk_category_p = 'Low Risk' if risk_score_p < 0.3 else 'Medium Risk' if 0.3 <= risk_score_p < 0.7 else 'High Risk'
                 st.success(parkinson_diagnosis)
                 st.write(f'Risk of developing Parkinsons: {risk_score_p:.2f} ({risk_category_p})')
+                ai_suggestions_p = get_ai_health_suggestions(parkinson_prediction[0], risk_category_p, 'Parkinsons')
 
                 # Store the result in session state
                 st.session_state['patient_data'] = {
@@ -693,10 +502,13 @@ if st.session_state['logged_in']:
                     'Sex': patient_result[3],
                     'Diabetes Verdict': diab_diagnosis,
                     'Risk of Diabetes': f'Risk of developing diabetes: {risk_score_d:.2f} ({risk_category_d})',
+                    'Diabetes Treatment Suggestion': ai_suggestions_d,
                     'Heart Disease Verdict': heart_diagnosis,
                     'Risk of Heart Disease': f'Risk of developing heart disease: {risk_score_h:.2f} ({risk_category_h})',
+                    'Heart Disease Treatment Suggestion': ai_suggestions_h,
                     'Parkinsons Verdict': parkinson_diagnosis,
-                    'Risk of Parkinsons': f'Risk of developing Parkinsons: {risk_score_p:.2f} ({risk_category_p})'
+                    'Risk of Parkinsons': f'Risk of developing Parkinsons: {risk_score_p:.2f} ({risk_category_p})',
+                    'Parkinsons Treatment Suggestion': ai_suggestions_p
                 }
 
         # Generate Medical Report Button - only enabled after submission
