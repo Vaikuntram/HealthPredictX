@@ -115,7 +115,7 @@ def retrieve_patient_data(name):
     with create_connection() as connection:
         try:
             c = connection.cursor()
-            query = "SELECT * FROM patients WHERE name = ?"
+            query = "SELECT * FROM patients WHERE id = ?"
             c.execute(query, (name,))
             patient_data = c.fetchone()
             return patient_data
