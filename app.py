@@ -124,6 +124,14 @@ if st.session_state['logged_in']:
         result = '. '.join(sentences[:2]).strip()
         
         return result if result.endswith('.') else result + '.'
+    
+    def identify_condition_in_query(query):
+        conditions = ["diabetic", "heart disease", "parkinsons"]
+        
+        for condition in conditions:
+            if condition.lower() in query.lower():
+                return condition
+        return None  # If no condition matches
 
         
     # getting the working directory of the main.py
@@ -195,7 +203,7 @@ if st.session_state['logged_in']:
             Phone = ''
             Email = ''
 
-            search_name = st.text_input("Enter the name of the patient")
+            search_name = st.text_input("Enter the ID of the patient")
             if(st.button("Submit")):
                 if search_name:
                     result = retrieve_patient_data(search_name)
@@ -528,46 +536,105 @@ if st.session_state['logged_in']:
 
     if selected == 'Health Chatbot':
         st.title("HealthPredictX Chatbot")
-        
+
         st.markdown("""
         Welcome to the HealthPredictX Chatbot. You can ask health-related questions, 
         and the chatbot will provide recommendations based on these conditions. Please note that
         the chatbot may make mistakes.
         """)
-        
-        # Input for user message
-        user_input = st.text_input("You:", placeholder="Type your question here...")
 
-        # Ensure chat history is initialized
-        if 'chat_history' not in st.session_state:
-            st.session_state.chat_history = []
+        # Creating the two tabs: General Queries and Patient-Specific Queries
+        tab1, tab2 = st.tabs(["General Queries", "Patient-Specific Queries"])
 
-        # Check if the "Clear Chat" button was clicked
-        if st.button("Clear Chat"):
-            st.session_state.chat_history = []
-            user_input = ""  # Clear user input to avoid generating a new response
+        # General Queries Tab
+        with tab1:
+            st.header("General Health Queries")
 
-        # Check if any old entries are tuples and convert them to dictionaries
-        for i, chat in enumerate(st.session_state.chat_history):
-            if isinstance(chat, tuple):  # If chat is a tuple, convert it to a dictionary
-                user_msg, bot_reply = chat
-                st.session_state.chat_history[i] = {"user": user_msg, "bot": bot_reply}
+            # Input for user message (general queries)
+            user_input = st.text_input("You:", placeholder="Type your general health question here...")
 
-        # Only generate a response if user_input is not empty and "Clear Chat" wasn't clicked
-        if user_input and 'chat_history' in st.session_state:
-            with st.spinner('Generating response...'):
-                # Generate chatbot response using GPT-2
-                prompt = f"Patient's query: {user_input}\nHealthcare advice:"
-                response = suggestion_generator(prompt, max_length=150, num_return_sequences=1, temperature=0.7)
-                chatbot_reply = response[0]['generated_text'].strip()
+            # Ensure chat history is initialized for general queries
+            if 'chat_history' not in st.session_state:
+                st.session_state.chat_history = []
 
-                # Append to chat history as a dictionary
-                st.session_state.chat_history.append({"user": user_input, "bot": chatbot_reply})
+            # Clear Chat option
+            if st.button("Clear Chat "):
+                st.session_state.chat_history = []
+                user_input = "" 
 
-        # Display chat history
-        for chat in st.session_state.chat_history:
-            st.markdown(f"**You:** {chat['user']}")  # Now this will always be a dictionary
-            st.markdown(f"**HealthPredictX:** {chat['bot']}")
+            # Only generate a response if user_input is not empty and "Clear Chat" wasn't clicked
+            if user_input and 'chat_history' in st.session_state:
+                with st.spinner('Generating response...'):
+                    prompt = f"Patient's query: {user_input}\nHealthcare advice:"
+                    response = suggestion_generator(prompt, max_length=150, num_return_sequences=1, temperature=0.7)
+                    chatbot_reply = response[0]['generated_text'].strip()
+
+                    # Append to chat history as a dictionary
+                    st.session_state.chat_history.append({"user": user_input, "bot": chatbot_reply})
+
+            for chat in st.session_state.chat_history:
+                st.markdown(f"**You:** {chat['user']}")
+                st.markdown(f"**HealthPredictX:** {chat['bot']}")
+
+        # Patient-Specific Queries Tab
+        with tab2:
+            st.header("Patient-Specific Queries")
+
+            st.markdown("""
+            **How to Ask Patient-Specific Questions:**
+            - Please enter the Patient ID for the individual you want to inquire about.
+            - Use specific keywords in your questions to get relevant information. For example:
+                - "Is the patient diabetic?"
+                - "What are the symptoms of heart disease for this patient?"
+                - "Does the patient have Parkinsons disease?"
+            - Ensure your questions clearly mention the health condition you are inquiring about.
+            """)
+
+            # Input for patient ID and query
+            patient_id = st.text_input("Enter Patient ID:")
+            patient_query = st.text_input("You (Patient Query):", placeholder="Type your question for the patient...")
+
+            # Ensure chat history is initialized for patient-specific queries
+            if 'patient_chat_history' not in st.session_state:
+                st.session_state.patient_chat_history = []
+
+            # Clear Chat option for patient-specific queries
+            if st.button("Clear Chat"):
+                st.session_state.patient_chat_history = []
+                patient_query = ""  # Clear input to avoid generating a new response
+
+            # Only generate a response if patient_query and patient_id are provided
+            if patient_id and patient_query and 'patient_chat_history' in st.session_state:
+                with st.spinner('Fetching patient data and generating response...'):
+
+                    condition = identify_condition_in_query(patient_query)
+
+                    condition_to_db = {
+                        "diabetic": retrieve_diabetes_data,
+                        "heart disease": retrieve_heart_disease_data,
+                        "parkinsons": retrieve_parkinsons_data
+                    }
+
+                    if condition and condition in condition_to_db:
+
+                        patient_data = condition_to_db[condition](patient_id)
+                        
+                        if patient_data:
+                            # Generate patient-specific response using the fetched data
+                            prompt = f"Patient ID: {patient_id}, Query: {patient_query}\nPatient Data: {patient_data}\nHealthcare advice:"
+                            response = suggestion_generator(prompt, max_length=150, num_return_sequences=1)
+                            chatbot_reply = response[0]['generated_text'].strip()
+                            # Append to patient-specific chat history
+                            st.session_state.patient_chat_history.append({"patient_id": patient_id, "user": patient_query, "bot": chatbot_reply})
+                        else:
+                            chatbot_reply = f"Sorry, no data found for Patient ID {patient_id} related to {condition}."
+                    else:
+                        chatbot_reply = "Sorry, I'm not sure which condition you're asking about. Please try again."
+
+            # Display chat history for patient-specific queries
+            for chat in st.session_state.patient_chat_history:
+                st.markdown(f"**Patient ID {chat['patient_id']} - You:** {chat['user']}")
+                st.markdown(f"**HealthPredictX:** {chat['bot']}")
 
 else:
     choice = st.selectbox("Select an option", ["Login", "Register"])
