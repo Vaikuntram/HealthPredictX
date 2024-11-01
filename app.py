@@ -13,49 +13,58 @@ from fpdf import FPDF
 import io
 from io import BytesIO
 
+# Set page configuration
 st.set_page_config(page_title="HealthPredictX",
                    layout="wide",
                    page_icon="🧑‍⚕️")
 
+#device = 0 if torch.cuda.is_available() else -1
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 def create_pdf(patient_data):
+    # Initialize FPDF object
     pdf = FPDF()
     pdf.add_page()
     
+    # Set font and title
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt="Comprehensive Medical Report", ln=True, align="C")
-    pdf.ln(10) 
-  
+    pdf.ln(10)  # Line break
+    
+    # Add patient details from the dictionary
     pdf.cell(200, 10, txt=f"Name: {patient_data['Name']}", ln=True)
     pdf.cell(200, 10, txt=f"Age: {patient_data['Age']}", ln=True)
     pdf.cell(200, 10, txt=f"Sex: {patient_data['Sex']}", ln=True)
-    pdf.ln(5)
+    pdf.ln(5)  # Line break for better formatting
     
+    # Add health assessment details
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(200, 10, txt="Diabetes Assessment:", ln=True)
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"  Verdict: {patient_data['Diabetes Verdict']}", ln=True)
     pdf.cell(200, 10, txt=f"  Risk: {patient_data['Risk of Diabetes']}", ln=True)
-    pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Diabetes Treatment Suggestion']}", ln=True)
-    pdf.ln(5)
+    #pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Diabetes Treatment Suggestion']}", ln=True)
+    pdf.multi_cell(0, 10, txt=f"  Treatment Suggestion: {patient_data['Diabetes Treatment Suggestion']}")
+    pdf.ln(5)  # Line break
     
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(200, 10, txt="Heart Disease Assessment:", ln=True)
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"  Verdict: {patient_data['Heart Disease Verdict']}", ln=True)
     pdf.cell(200, 10, txt=f"  Risk: {patient_data['Risk of Heart Disease']}", ln=True)
-    pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Heart Disease Treatment Suggestion']}", ln=True)
-    pdf.ln(5)
+    #pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Heart Disease Treatment Suggestion']}", ln=True)
+    pdf.multi_cell(0, 10, txt=f"  Treatment Suggestion: {patient_data['Heart Disease Treatment Suggestion']}")
+    pdf.ln(5)  # Line break
     
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(200, 10, txt="Parkinson's Disease Assessment:", ln=True)
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt=f"  Verdict: {patient_data['Parkinsons Verdict']}", ln=True)
     pdf.cell(200, 10, txt=f"  Risk: {patient_data['Risk of Parkinsons']}", ln=True)
-    pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Parkinsons Treatment Suggestion']}", ln=True)
+    #pdf.cell(200, 10, txt=f"  Treatment Suggestion: {patient_data['Parkinsons Treatment Suggestion']}", ln=True)
+    pdf.multi_cell(0, 10, txt=f"  Treatment Suggestion: {patient_data['Parkinsons Treatment Suggestion']}")
     pdf.ln(10)
     
     pdf.set_font("Arial", 'I', 10)
@@ -72,30 +81,31 @@ def create_pdf(patient_data):
 
 def register():
     st.title("Register")
-    user = st.text_input("Username")
+    username = st.text_input("Username")
     password = st.text_input("Password", type='password')
     
     if st.button("Register"):
         connection = create_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT username FROM users WHERE username = ?", (user,))
-        if cursor.fetchone():
+        # Check if username already exists in the database
+        cursor.execute("SELECT username FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():  # If the username is already taken
             st.warning("Username already exists!")
         else:
-            register_user(user, password)
+            register_user(username, password)
             st.success("User registered successfully! You can now log in.")
         connection.close()
 
 def login():
     st.title("Login")
-    user = st.text_input("Username")
+    username = st.text_input("Username")
     password = st.text_input("Password", type='password')
     
     if st.button("Login"):
-        if login_user(user, password):
+        if login_user(username, password):
             st.session_state['logged_in'] = True
-            st.session_state['username'] = user
-            st.success(f"Welcome, {user}!")
+            st.session_state['username'] = username
+            st.success(f"Welcome, {username}!")
             st.rerun()
         else:
             st.warning("Invalid username or password.")
@@ -112,6 +122,7 @@ if st.session_state['logged_in']:
         response_start = prompt.split('recommendation regarding further testing?')[0]
         response = generated_text.replace(response_start, '').strip()
         
+        # Post-process to ensure it's concise and returns only the first two sentences
         sentences = response.split('. ')
         result = '. '.join(sentences[:2]).strip()
         
@@ -123,18 +134,29 @@ if st.session_state['logged_in']:
         for condition in conditions:
             if condition.lower() in query.lower():
                 return condition
-        return None
+        return None  # If no condition matches
 
-    workdir = os.path.dirname(os.path.abspath(__file__))
+        
+    # getting the working directory of the main.py
+    working_dir = os.path.dirname(os.path.abspath(__file__))
 
-    diabetesm = pickle.load(open(f'{workdir}/svc_diabetes.sav','rb'))
-    heartdiseasem = pickle.load(open(f'{workdir}/logistic_model_updated.sav', 'rb'))
-    parkinsonsm = pickle.load(open(f'{workdir}/rf_model_updated.sav', 'rb'))
+    # loading the saved models
 
+    #diabetes_model = pickle.load(open(f'{working_dir}/saved_models/diabetes_model.sav', 'rb'))
+    diabetes_model = pickle.load(open(f'{working_dir}/svc_diabetes.sav','rb'))
+
+    #heart_disease_model = pickle.load(open(f'{working_dir}/saved_models/heart_disease_model.sav', 'rb'))
+    heart_disease_model = pickle.load(open(f'{working_dir}/logistic_model_updated.sav', 'rb'))
+
+    parkinsons_model = pickle.load(open(f'{working_dir}/rf_model_updated.sav', 'rb'))
+
+    # sidebar for navigation
     with st.sidebar:
         selected = option_menu('HealthPredictX',
 
                             ['Patient Data','Disease Predictions','Health Chatbot'],
+                                #'Heart Disease',
+                                #'Parkinsons'],
                             menu_icon='hospital-fill',
                             icons=['pen','activity','robot'],
                             default_index=0)
@@ -216,11 +238,11 @@ if st.session_state['logged_in']:
             patient_id = '' 
             pregnancies = '0'
             glucose = ''
-            bp = ''
-            skth = ''
+            blood_pressure = ''
+            skin_thickness = ''
             insulin = ''
             bmi = ''
-            diabped = ''
+            diabetes_pedigree = ''
 
             with col1:
                 patient_id = st.text_input('Patient ID')
@@ -229,10 +251,10 @@ if st.session_state['logged_in']:
                 glucose = st.text_input('Glucose Level')
 
             with col3:
-                bp = st.text_input('Blood Pressure value')
+                blood_pressure = st.text_input('Blood Pressure value')
 
             with col1:
-                skth = st.text_input('Skin Thickness value')
+                skin_thickness = st.text_input('Skin Thickness value')
 
             with col2:
                 insulin = st.text_input('Insulin Level')
@@ -241,11 +263,11 @@ if st.session_state['logged_in']:
                 bmi = st.text_input('BMI value')
 
             with col1:
-                diabped = st.text_input('Diabetes Pedigree Function value')
+                diabetes_pedigree = st.text_input('Diabetes Pedigree Function value')
 
             if(st.button("Submit")):
-                if patient_id and pregnancies and glucose and bp and skth and insulin and bmi and diabped:
-                    result = insert_diabetes_data(patient_id, pregnancies, glucose, bp, skth, insulin, bmi, diabped)
+                if patient_id and pregnancies and glucose and blood_pressure and skin_thickness and insulin and bmi and diabetes_pedigree:
+                    result = insert_diabetes_data(patient_id, pregnancies, glucose, blood_pressure, skin_thickness, insulin, bmi, diabetes_pedigree)
                     if result:
                         st.success("Diabetes Data has been succesfully stored in the database!")
                 else:
@@ -315,109 +337,101 @@ if st.session_state['logged_in']:
         else:
             col1, col2, col3, col4, col5 = st.columns(5)
             patient_id = ''
-            freq_start = ''
-            freq_high = ''
-            freq_low = ''
-            jitter_pct = ''
-            jitter_abs = ''
-            rap_ratio = ''
-            ppq_ratio = ''
-            ddp_jitter = ''
-            shimmer_val = ''
-            shimmer_db = ''
-            apq_3 = ''
-            apq_5 = ''
-            apq_val = ''
-            dda_shimmer = ''
-            noise_ratio = ''
-            harmonic_noise_ratio = ''
-            rpde_value = ''
-            dfa_value = ''
-            spread_one = ''
-            spread_two = ''
-            d2_measure = ''
-            ppe_value = ''
+            fo = ''
+            fhi = ''
+            flo = ''
+            Jitter_percent = ''
+            Jitter_Abs = ''
+            RAP = ''
+            PPQ = ''
+            DDP = ''
+            Shimmer = ''
+            Shimmer_dB = ''
+            APQ3 = ''
+            APQ5 = ''
+            APQ = ''
+            DDA = ''
+            NHR = ''
+            HNR = ''
+            RPDE = ''
+            DFA = ''
+            spread1 = ''
+            spread2 = ''
+            D2 = ''
+            PPE = ''
 
             with col1:
-                freq_start = st.text_input('MDVP:Fo(Hz)')
+                fo = st.text_input('MDVP:Fo(Hz)')
 
             with col2:
-                freq_high = st.text_input('MDVP:Fhi(Hz)')
+                fhi = st.text_input('MDVP:Fhi(Hz)')
 
             with col3:
-                freq_low = st.text_input('MDVP:Flo(Hz)')
+                flo = st.text_input('MDVP:Flo(Hz)')
 
             with col4:
-                jitter_pct = st.text_input('MDVP:Jitter(%)')
+                Jitter_percent = st.text_input('MDVP:Jitter(%)')
 
             with col5:
-                jitter_abs = st.text_input('MDVP:Jitter(Abs)')
+                Jitter_Abs = st.text_input('MDVP:Jitter(Abs)')
 
             with col1:
-                rap_ratio = st.text_input('MDVP:RAP')
+                RAP = st.text_input('MDVP:RAP')
 
             with col2:
-                ppq_ratio = st.text_input('MDVP:PPQ')
+                PPQ = st.text_input('MDVP:PPQ')
 
             with col3:
-                ddp_jitter = st.text_input('Jitter:DDP')
+                DDP = st.text_input('Jitter:DDP')
 
             with col4:
-                shimmer_val = st.text_input('MDVP:Shimmer')
+                Shimmer = st.text_input('MDVP:Shimmer')
 
             with col5:
-                shimmer_db = st.text_input('MDVP:Shimmer(dB)')
+                Shimmer_dB = st.text_input('MDVP:Shimmer(dB)')
 
             with col1:
-                apq_3 = st.text_input('Shimmer:APQ3')
+                APQ3 = st.text_input('Shimmer:APQ3')
 
             with col2:
-                apq_5 = st.text_input('Shimmer:APQ5')
+                APQ5 = st.text_input('Shimmer:APQ5')
 
             with col3:
-                apq_val = st.text_input('MDVP:APQ')
+                APQ = st.text_input('MDVP:APQ')
 
             with col4:
-                dda_shimmer = st.text_input('Shimmer:DDA')
+                DDA = st.text_input('Shimmer:DDA')
 
             with col5:
-                noise_ratio = st.text_input('NHR')
+                NHR = st.text_input('NHR')
 
             with col1:
-                harmonic_noise_ratio = st.text_input('HNR')
+                HNR = st.text_input('HNR')
 
             with col2:
-                rpde_value = st.text_input('RPDE')
+                RPDE = st.text_input('RPDE')
 
             with col3:
-                dfa_value = st.text_input('DFA')
+                DFA = st.text_input('DFA')
 
             with col4:
-                spread_one = st.text_input('spread1')
+                spread1 = st.text_input('spread1')
 
             with col5:
-                spread_two = st.text_input('spread2')
+                spread2 = st.text_input('spread2')
 
             with col1:
-                d2_measure = st.text_input('D2')
+                D2 = st.text_input('D2')
 
             with col2:
-                ppe_value = st.text_input('PPE')
+                PPE = st.text_input('PPE')
             
             with col3:
                 patient_id = st.text_input('Patient ID')
 
             if st.button("Submit"):
-                if (patient_id and freq_start and freq_high and freq_low and jitter_pct and jitter_abs and rap_ratio 
-                    and ppq_ratio and ddp_jitter and shimmer_val and shimmer_db and apq_3 and apq_5 and apq_val 
-                    and dda_shimmer and noise_ratio and harmonic_noise_ratio and rpde_value and dfa_value 
-                    and spread_one and spread_two and d2_measure and ppe_value):
-    
-                    result = insert_parkinsons_data(patient_id, freq_start, freq_high, freq_low, jitter_pct, jitter_abs, 
-                                                    rap_ratio, ppq_ratio, ddp_jitter, shimmer_val, shimmer_db, 
-                                                    apq_3, apq_5, apq_val, dda_shimmer, noise_ratio, 
-                                                    harmonic_noise_ratio, rpde_value, dfa_value, spread_one, 
-                                                    spread_two, d2_measure, ppe_value)
+                if patient_id and fo and fhi and flo and Jitter_percent and Jitter_Abs and RAP and PPQ and DDP and Shimmer and Shimmer_dB and APQ3 and APQ5 and APQ and DDA and NHR and HNR and RPDE and DFA and spread1 and spread2 and D2 and PPE:
+                    result = insert_parkinsons_data(patient_id, fo, fhi, flo, Jitter_percent, Jitter_Abs, RAP, PPQ, DDP, Shimmer, Shimmer_dB, APQ3, APQ5, APQ, DDA, NHR, HNR, RPDE, DFA, spread1, spread2, D2, PPE)
                     if result:
                         st.success("Parkisons data successfully stored in the database!")
                 else:
@@ -425,22 +439,27 @@ if st.session_state['logged_in']:
     
     if selected == 'Disease Predictions':
         st.title('Disease Predictions')
-        patient_id = st.text_input("Enter the Patient ID")
-        name = st.text_input("Enter the name of the patient")
         
+        # Input for patient ID and name
+        patient_id = st.text_input("Enter the Patient ID")
+        #name = st.text_input("Enter the name of the patient")
+        
+        # Submit button for predictions
         if st.button("Submit"):
             if patient_id:
-                patient_result = retrieve_patient_data(name)
+                # Retrieve patient and health data
+                patient_result = retrieve_patient_data(patient_id)
                 age = patient_result[2]
                 sex = '1' if patient_result[3] == 'Female' else '0'
                 diabetes_result = retrieve_diabetes_data(patient_id)
                 heart_result = retrieve_heart_disease_data(patient_id)
                 parkinson_result = retrieve_parkinsons_data(patient_id)
                 
+                # Process diabetes prediction
                 diabetes_input = [diabetes_result[2], diabetes_result[3], diabetes_result[4], diabetes_result[5], diabetes_result[6], diabetes_result[7], diabetes_result[8], age]
                 diabetes_input = [float(x) for x in diabetes_input]
-                diab_prediction = diabetesm.predict([diabetes_input])
-                diab_prob = diabetesm.predict_proba([diabetes_input])
+                diab_prediction = diabetes_model.predict([diabetes_input])
+                diab_prob = diabetes_model.predict_proba([diabetes_input])
 
                 if diab_prediction[0] == 1:
                     diab_diagnosis = 'The patient is diabetic'
@@ -452,11 +471,13 @@ if st.session_state['logged_in']:
                 st.success(diab_diagnosis)
                 st.write(f'Risk of developing diabetes: {risk_score_d:.2f} ({risk_category_d})')
                 ai_suggestions_d = get_ai_health_suggestions(diab_prediction[0], risk_category_d, 'Diabetes')
+                #print(ai_suggestions_d)
 
+                # Process heart disease prediction
                 heart_input = [age, heart_result[2], heart_result[3], heart_result[4], heart_result[5], heart_result[6], heart_result[7], heart_result[8], heart_result[9], sex, heart_result[10], heart_result[11]]
                 heart_input = [float(x) for x in heart_input]
-                heart_prediction = heartdiseasem.predict([heart_input])
-                heart_prob = heartdiseasem.predict_proba([heart_input])
+                heart_prediction = heart_disease_model.predict([heart_input])
+                heart_prob = heart_disease_model.predict_proba([heart_input])
 
                 if heart_prediction[0] == 1:
                     heart_diagnosis = 'The patient is having heart disease and is at risk of heart failure'
@@ -469,9 +490,10 @@ if st.session_state['logged_in']:
                 st.write(f'Risk of developing heart disease: {risk_score_h:.2f} ({risk_category_h})')
                 ai_suggestions_h = get_ai_health_suggestions(heart_prediction[0], risk_category_h, 'Heart Disease')
 
-                parkinsons_input = [float(x) for x in parkinson_result[2:24]]
-                parkinson_prediction = parkinsonsm.predict([parkinsons_input])
-                parkinson_prob = parkinsonsm.predict_proba([parkinsons_input])
+                # Process Parkinson's prediction
+                parkinsons_input = [float(x) for x in parkinson_result[2:24]]  # Assuming indices 2-23 are relevant
+                parkinson_prediction = parkinsons_model.predict([parkinsons_input])
+                parkinson_prob = parkinsons_model.predict_proba([parkinsons_input])
 
                 if parkinson_prediction[0] == 1:
                     parkinson_diagnosis = "The patient has Parkinson's disease"
@@ -484,6 +506,7 @@ if st.session_state['logged_in']:
                 st.write(f'Risk of developing Parkinsons: {risk_score_p:.2f} ({risk_category_p})')
                 ai_suggestions_p = get_ai_health_suggestions(parkinson_prediction[0], risk_category_p, 'Parkinsons')
 
+                # Store the result in session state
                 st.session_state['patient_data'] = {
                     'Name': patient_result[1],
                     'Age': age,
@@ -499,6 +522,7 @@ if st.session_state['logged_in']:
                     'Parkinsons Treatment Suggestion': ai_suggestions_p
                 }
 
+        # Generate Medical Report Button - only enabled after submission
         if 'patient_data' in st.session_state:
             if st.button("Generate Medical Report"):
                 patient_data = st.session_state['patient_data']
@@ -507,7 +531,7 @@ if st.session_state['logged_in']:
                 pdf = create_pdf(patient_data)
                 st.download_button(
                     label="Download Medical Report",
-                    data=pdf.getvalue(), 
+                    data=pdf.getvalue(),  # Get the content of the BytesIO object
                     file_name='medical_report.pdf',
                     mime='application/pdf'
                 )
@@ -522,32 +546,40 @@ if st.session_state['logged_in']:
         the chatbot may make mistakes.
         """)
 
+        # Creating the two tabs: General Queries and Patient-Specific Queries
         tab1, tab2 = st.tabs(["General Queries", "Patient-Specific Queries"])
 
+        # General Queries Tab
         with tab1:
             st.header("General Health Queries")
 
+            # Input for user message (general queries)
             user_input = st.text_input("You:", placeholder="Type your general health question here...")
 
+            # Ensure chat history is initialized for general queries
             if 'chat_history' not in st.session_state:
                 st.session_state.chat_history = []
 
+            # Clear Chat option
             if st.button("Clear Chat "):
                 st.session_state.chat_history = []
                 user_input = "" 
 
+            # Only generate a response if user_input is not empty and "Clear Chat" wasn't clicked
             if user_input and 'chat_history' in st.session_state:
                 with st.spinner('Generating response...'):
                     prompt = f"Patient's query: {user_input}\nHealthcare advice:"
                     response = suggestion_generator(prompt, max_length=150, num_return_sequences=1, temperature=0.7)
                     chatbot_reply = response[0]['generated_text'].strip()
 
+                    # Append to chat history as a dictionary
                     st.session_state.chat_history.append({"user": user_input, "bot": chatbot_reply})
 
             for chat in st.session_state.chat_history:
                 st.markdown(f"**You:** {chat['user']}")
                 st.markdown(f"**HealthPredictX:** {chat['bot']}")
 
+        # Patient-Specific Queries Tab
         with tab2:
             st.header("Patient-Specific Queries")
 
@@ -561,16 +593,20 @@ if st.session_state['logged_in']:
             - Ensure your questions clearly mention the health condition you are inquiring about.
             """)
 
+            # Input for patient ID and query
             patient_id = st.text_input("Enter Patient ID:")
             patient_query = st.text_input("You (Patient Query):", placeholder="Type your question for the patient...")
 
+            # Ensure chat history is initialized for patient-specific queries
             if 'patient_chat_history' not in st.session_state:
                 st.session_state.patient_chat_history = []
 
+            # Clear Chat option for patient-specific queries
             if st.button("Clear Chat"):
                 st.session_state.patient_chat_history = []
-                patient_query = "" 
+                patient_query = ""  # Clear input to avoid generating a new response
 
+            # Only generate a response if patient_query and patient_id are provided
             if patient_id and patient_query and 'patient_chat_history' in st.session_state:
                 with st.spinner('Fetching patient data and generating response...'):
 
@@ -587,15 +623,18 @@ if st.session_state['logged_in']:
                         patient_data = condition_to_db[condition](patient_id)
                         
                         if patient_data:
+                            # Generate patient-specific response using the fetched data
                             prompt = f"Patient ID: {patient_id}, Query: {patient_query}\nPatient Data: {patient_data}\nHealthcare advice:"
                             response = suggestion_generator(prompt, max_length=150, num_return_sequences=1)
                             chatbot_reply = response[0]['generated_text'].strip()
+                            # Append to patient-specific chat history
                             st.session_state.patient_chat_history.append({"patient_id": patient_id, "user": patient_query, "bot": chatbot_reply})
                         else:
                             chatbot_reply = f"Sorry, no data found for Patient ID {patient_id} related to {condition}."
                     else:
                         chatbot_reply = "Sorry, I'm not sure which condition you're asking about. Please try again."
 
+            # Display chat history for patient-specific queries
             for chat in st.session_state.patient_chat_history:
                 st.markdown(f"**Patient ID {chat['patient_id']} - You:** {chat['user']}")
                 st.markdown(f"**HealthPredictX:** {chat['bot']}")
